@@ -35,7 +35,8 @@
     "@shared/errors": "workspace:*",
     "@prisma/client": "^6.19.3",
     "kafkajs": "^2.2.4",
-    "pg-boss": "^12.15.0"
+    "pg-boss": "^12.15.0",
+    "@shared/otel": "workspace:*"
   },
   "prisma": {
     "schema": "./src/infrastructure/db/prisma/schema.prisma"
