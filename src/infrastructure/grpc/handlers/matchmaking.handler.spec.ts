@@ -34,29 +34,16 @@ describe('MatchmakingHandler', () => {
             .then(() => callback.mock.calls[0]);
     }
 
-    it('генерирует track_id при пустом входе и возвращает его в ответе', async () => {
+    it('возвращает баттл без track_id', async () => {
         useCase.execute.mockResolvedValue(makeBattle('battle-1'));
 
-        const [err, result] = await runInit({profileId: 'profile-1', battleId: 'battle-1', trackId: ''});
+        const [err, result] = await runInit({profileId: 'profile-1', battleId: 'battle-1'});
 
         expect(err).toBeNull();
-        expect(result.trackId).toBeTruthy();
-
-        const passedTrackId = useCase.execute.mock.calls[0][2];
-        expect(passedTrackId).toBe(result.trackId);
-    });
-
-    it('переиспользует входящий track_id и эхает его в ответе', async () => {
-        useCase.execute.mockResolvedValue(makeBattle('battle-1'));
-
-        const [err, result] = await runInit({profileId: 'profile-1', battleId: 'battle-1', trackId: 'track-42'});
-
-        expect(err).toBeNull();
-        expect(result.trackId).toBe('track-42');
+        expect(result.battle.id).toBe('battle-1');
         expect(useCase.execute).toHaveBeenCalledWith(
             expect.anything(),
             expect.anything(),
-            'track-42',
         );
     });
 });

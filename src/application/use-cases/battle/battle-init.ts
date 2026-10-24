@@ -16,7 +16,7 @@ export class BattleInitUseCase {
     ) {
     }
 
-    async execute(profileId: ProfileId, battleId?: BattleId | null, trackId?: string): Promise<BattleEntity> {
+    async execute(profileId: ProfileId, battleId?: BattleId | null): Promise<BattleEntity> {
         if (battleId) {
             let battle: BattleEntity | null;
             try {
@@ -29,7 +29,7 @@ export class BattleInitUseCase {
                 throw new NotFoundError('battle ' + battleId.value);
             }
 
-            this.enqueue(battle, trackId);
+            this.enqueue(battle);
 
             return battle;
         }
@@ -52,7 +52,7 @@ export class BattleInitUseCase {
             try {
                 const battle = await this.battleRepository.join(profileId, existingSomebodiesBattle.id);
                 if (battle) {
-                    this.enqueue(battle, trackId);
+                    this.enqueue(battle);
                     return battle;
                 }
             } catch (e) {
@@ -66,14 +66,11 @@ export class BattleInitUseCase {
         return battle;
     }
 
-    private enqueue(battle: BattleEntity, trackId?: string): void {
+    private enqueue(battle: BattleEntity): void {
         if (battle.status.value == BattleStatusEnum.Matched) {
             this.jobService.enqueue(
                 this.matchmakingMatchedTopic,
-                battleProto.TracedBattle.create({
-                    trackId,
-                    battle: MatchmakingProtoMapper.toProto(battle),
-                }),
+                MatchmakingProtoMapper.toProto(battle),
             );
         }
     }
