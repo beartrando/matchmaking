@@ -27,10 +27,9 @@ RUN apt-get update \
         protobuf-compiler \
         libprotobuf-dev \
         wget \
-        netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+RUN corepack enable && corepack prepare pnpm@11.28.4 --activate
 
 
 # ---------- DEPS ----------
@@ -42,14 +41,17 @@ RUN pnpm install --offline --frozen-lockfile --ignore-scripts
 RUN mkdir -p ./services/matchmaking/src/contracts/proto
 RUN pnpm --filter matchmaking proto:generate
 
+RUN pnpm --filter @shared/cache-store build
+RUN pnpm --filter @shared/state-store build
+RUN pnpm --filter @shared/timer build
+RUN pnpm --filter @shared/kafka-manager build
+RUN pnpm --filter @shared/persistent-logger build
+RUN pnpm --filter @shared/pg-boss-manager build
 RUN pnpm --filter @shared/logger build
 RUN pnpm --filter @shared/grpc-client-manager build
 RUN pnpm --filter @shared/errors proto:generate
 RUN pnpm --filter @shared/errors build
-RUN pnpm --filter @shared/kafka-manager build
-RUN pnpm --filter @shared/persistent-logger build
 RUN pnpm --filter @shared/otel build
-RUN pnpm --filter @shared/pg-boss-manager build
 
 RUN pnpm --filter matchmaking prisma:generate
 
@@ -91,7 +93,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssl \
         wget \
-        netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
