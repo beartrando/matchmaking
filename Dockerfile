@@ -14,12 +14,12 @@ COPY package.json ./
 COPY pnpm-workspace.yaml ./
 COPY tsconfig.base.json ./
 
-COPY services/matchmaking/package*.json ./services/matchmaking/
-COPY services/matchmaking/jest.config.js ./services/matchmaking/
-COPY services/matchmaking/jest.setup.ts ./services/matchmaking/
-COPY services/matchmaking/tsconfig.json ./services/matchmaking/
-COPY services/matchmaking/jest.setup.ts ./services/matchmaking/
-COPY services/matchmaking/src ./services/matchmaking/src/
+COPY services/server/matchmaking/package*.json ./services/server/matchmaking/
+COPY services/server/matchmaking/jest.config.js ./services/server/matchmaking/
+COPY services/server/matchmaking/jest.setup.ts ./services/server/matchmaking/
+COPY services/server/matchmaking/tsconfig.json ./services/server/matchmaking/
+COPY services/server/matchmaking/jest.setup.ts ./services/server/matchmaking/
+COPY services/server/matchmaking/src ./services/server/matchmaking/src/
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -38,7 +38,7 @@ FROM base AS deps
 RUN pnpm fetch
 RUN pnpm install --offline --frozen-lockfile --ignore-scripts
 
-RUN mkdir -p ./services/matchmaking/src/contracts/proto
+RUN mkdir -p ./services/server/matchmaking/src/contracts/proto
 RUN pnpm --filter matchmaking proto:generate
 
 RUN pnpm --filter @shared/logger build
@@ -58,7 +58,7 @@ RUN pnpm --filter matchmaking prisma:generate
 # ---------- DEV ----------
 FROM deps AS dev
 
-COPY services/matchmaking/tsconfig.test.json ./services/matchmaking/
+COPY services/server/matchmaking/tsconfig.test.json ./services/server/matchmaking/
 
 ENV NODE_ENV=development
 
@@ -128,6 +128,6 @@ RUN printf "%s\n" "$VERSION" > VERSION
 
 LABEL org.opencontainers.image.version="$VERSION"
 
-WORKDIR /usr/src/app/services/matchmaking
+WORKDIR /usr/src/app/services/server/matchmaking
 
 CMD ["pnpm", "--filter", "matchmaking", "migrate:deploy"]
