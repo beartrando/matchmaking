@@ -18,7 +18,6 @@ COPY services/server/matchmaking/package*.json ./services/server/matchmaking/
 COPY services/server/matchmaking/jest.config.js ./services/server/matchmaking/
 COPY services/server/matchmaking/jest.setup.ts ./services/server/matchmaking/
 COPY services/server/matchmaking/tsconfig.json ./services/server/matchmaking/
-COPY services/server/matchmaking/jest.setup.ts ./services/server/matchmaking/
 COPY services/server/matchmaking/src ./services/server/matchmaking/src/
 
 RUN apt-get update \
@@ -55,6 +54,7 @@ RUN pnpm --filter @shared/otel build
 
 RUN pnpm --filter matchmaking prisma:generate
 
+
 # ---------- DEV ----------
 FROM deps AS dev
 
@@ -71,7 +71,8 @@ EXPOSE 50051
 CMD ["pnpm", "--filter", "matchmaking", "dev"]
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 50051 || exit 1
+    CMD nc -z localhost 50051 || exit 1
+
 
 # ---------- BUILD ----------
 FROM deps AS build
@@ -82,12 +83,24 @@ RUN pnpm --filter matchmaking build
 
 RUN pnpm --filter matchmaking deploy /deploy --prod
 
+RUN GENERATED_PRISMA_DIR=$(dirname "$(find /usr/src/app/node_modules/.pnpm -path "*/.prisma/client/default.js" | head -1)") \
+    && PRISMA_PKG_DIR=$(find /deploy/node_modules/.pnpm -type d -name client -path "*@prisma*" | head -1) \
+    && NODE_MODULES_DIR=$(dirname "$(dirname "$PRISMA_PKG_DIR")") \
+    && mkdir -p "$NODE_MODULES_DIR/.prisma" \
+    && rm -rf "$NODE_MODULES_DIR/.prisma/client" \
+    && cp -r "$GENERATED_PRISMA_DIR" "$NODE_MODULES_DIR/.prisma/client" \
+    && mkdir -p /deploy/node_modules/.prisma \
+    && rm -rf /deploy/node_modules/.prisma/client \
+    && cp -r "$GENERATED_PRISMA_DIR" /deploy/node_modules/.prisma/client
+
+
 # ---------- PROD ----------
 FROM node:22-slim AS prod
 
 ARG VERSION=dev
 
 ENV APP_VERSION=$VERSION
+ENV NODE_ENV=production
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -96,8 +109,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
-
-ENV NODE_ENV=production
 
 COPY --from=build /deploy/dist ./dist
 COPY --from=build /deploy/node_modules ./node_modules
@@ -113,16 +124,31 @@ EXPOSE 50051
 CMD ["node", "dist/app.js"]
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 50051 || exit 1
+    CMD nc -z localhost 50051 || exit 1
+
 
 # ---------- PREDEPLOY ----------
-FROM build AS predeploy
+FROM node:22-slim AS predeploy
 
 ARG VERSION=dev
 
 ENV APP_VERSION=$VERSION
+ENV NODE_ENV=production
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openssl \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
+
+# Только зависимости workspace, необходимые Prisma CLI
+COPY --from=build /usr/src/app/node_modules ./node_modules
+COPY --from=build /usr/src/app/services/server/matchmaking/node_modules ./services/server/matchmaking/node_modules
+
+# Только схема и миграции
+COPY services/server/matchmaking/src/infrastructure/db/prisma ./services/server/matchmaking/src/infrastructure/db/prisma
 
 RUN printf "%s\n" "$VERSION" > VERSION
 
@@ -130,4 +156,4 @@ LABEL org.opencontainers.image.version="$VERSION"
 
 WORKDIR /usr/src/app/services/server/matchmaking
 
-CMD ["pnpm", "--filter", "matchmaking", "migrate:deploy"]
+CMD ["./node_modules/.bin/prisma", "migrate", "deploy", "--schema=src/infrastructure/db/prisma/schema.prisma"]
